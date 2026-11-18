@@ -1,0 +1,107 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x64
+            os: windows-latest
+            bin: dj-ape1.exe
+          - name: linux-x64
+            os: ubuntu-22.04
+            bin: dj-ape1
+          - name: macos-arm64
+            os: macos-latest
+            bin: dj-ape1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev libxdo-dev libssl-dev pkg-config
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build (release)
+        run: cargo build --release --locked
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist/dj-ape1
+          cp "target/release/${{ matrix.bin }}" dist/dj-ape1/
+          cp README.md dist/dj-ape1/
+          cd dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a "dj-ape1-${{ matrix.name }}.zip" dj-ape1 >/dev/null
+          else
+            tar czf "dj-ape1-${{ matrix.name }}.tar.gz" dj-ape1
+          fi
+          ls -la
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dj-ape1-${{ matrix.name }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+
+  installer:
+    name: windows-installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build (release)
+        run: cargo build --release --locked
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build installer
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VER="${GITHUB_REF_NAME#v}"; else VER="1.0.0-dev"; fi
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/DAppVersion=$VER" installer/djape1.iss
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dj-ape1-windows-installer
+          path: dist/DjApe1-Setup-*.exe
+
+  release:
+    name: Publish release
+    needs: [build, installer]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
