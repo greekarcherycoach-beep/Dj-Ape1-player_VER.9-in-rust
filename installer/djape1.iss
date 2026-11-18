@@ -1,4 +1,5 @@
-#ifndef AppVersion
+#define AppVersion GetEnv("APP_VERSION")
+#if AppVersion == ""
   #define AppVersion "1.0.0"
 #endif
 
