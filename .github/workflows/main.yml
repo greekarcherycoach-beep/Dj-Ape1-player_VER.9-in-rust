@@ -24,7 +24,7 @@ jobs:
           - name: windows-x64
             os: windows-latest
             bin: dj-ape1.exe
-          
+         
     steps:
       - uses: actions/checkout@v4
 
@@ -78,7 +78,8 @@ jobs:
         shell: bash
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VER="${GITHUB_REF_NAME#v}"; else VER="1.0.0-dev"; fi
-          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" "/DAppVersion=$VER" installer/djape1.iss
+          export APP_VERSION="$VER"
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" installer/djape1.iss
           ls -la dist
       - uses: actions/upload-artifact@v4
         with:
