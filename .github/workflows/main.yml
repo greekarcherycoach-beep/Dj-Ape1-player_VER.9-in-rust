@@ -24,13 +24,7 @@ jobs:
           - name: windows-x64
             os: windows-latest
             bin: dj-ape1.exe
-          - name: linux-x64
-            os: ubuntu-22.04
-            bin: dj-ape1
-          - name: macos-arm64
-            os: macos-latest
-            bin: dj-ape1
-
+          
     steps:
       - uses: actions/checkout@v4
 
